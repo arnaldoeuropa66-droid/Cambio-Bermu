@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cambio Bermu</title>
+<meta name="description" content="Calculadora de cambio entre euro, dólar, USDT, USDC, BTC, ETH, SOL y XRP con precios de mercado actualizados.">
+<meta name="theme-color" content="#0e0d0b">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23d9ab3f'/%3E%3Ctext x='32' y='42' font-family='Arial,sans-serif' font-weight='700' font-size='30' text-anchor='middle' fill='%231a1405'%3EEB%3C/text%3E%3C/svg%3E">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap">
+<style>
+  /* Layout: una columna centrada (máx. 760px). Arriba la calculadora, debajo la tabla de mercado y las notas.
+     Paleta Efecto Bermu: negro cálido, dorado y blanco. Verde aguamarina solo para "en vivo / sube". */
+  :root {
+    --bg: #0e0d0b;
+    --surface: #171512;
+    --surface-2: #211e18;
+    --line: #342e23;
+    --fg: #f4efe4;
+    --muted: #a8a08c;
+    --gold: #d9ab3f;
+    --gold-ink: #1a1405;
+    --gold-text: #e6bd55;
+    --up: #3cc5ae;
+    --down: #ee7d6a;
+    --glow: rgba(217, 171, 63, .16);
+    --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+    --font-body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-num: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f7f4ec; --surface: #ffffff; --surface-2: #f1ece0; --line: #e0d8c5;
+      --fg: #1c1810; --muted: #6a624f; --gold: #c8962a; --gold-ink: #1a1405;
+      --gold-text: #86600a; --up: #0f8a76; --down: #bd3e2b; --glow: rgba(200, 150, 42, .18);
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f7f4ec; --surface: #ffffff; --surface-2: #f1ece0; --line: #e0d8c5;
+    --fg: #1c1810; --muted: #6a624f; --gold: #c8962a; --gold-ink: #1a1405;
+    --gold-text: #86600a; --up: #0f8a76; --down: #bd3e2b; --glow: rgba(200, 150, 42, .18);
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: var(--font-body); font-size: 16px; line-height: 1.55;
+    padding-block: 20px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 28px; }
+  h1, h2 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: -.01em; }
+  p { margin: 0; }
+  button, select, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  /* Cabecera */
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
+  .mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--gold); color: var(--gold-ink); font-family: var(--font-display); font-weight: 700; font-size: 14px; letter-spacing: 0; }
+  .ghost { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 13px; color: var(--muted); cursor: pointer; transition: border-color .2s, color .2s; }
+  .ghost:hover { border-color: var(--gold); color: var(--fg); }
+
+  .hero { display: grid; gap: 10px; }
+  h1 { font-size: clamp(2rem, 7vw, 3.1rem); line-height: 1.04; font-weight: 700; }
+  .lede { color: var(--muted); max-width: 52ch; }
+
+  /* Estado del mercado */
+  .status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 13px; color: var(--muted); }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .pill.live .dot { background: var(--up); box-shadow: 0 0 0 0 var(--up); animation: pulse 2s infinite; }
+  .pill.stale .dot { background: var(--gold); }
+  .pill.err .dot { background: var(--down); }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--up) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 8px transparent; } }
+  .btn { border: 0; cursor: pointer; border-radius: 10px; padding: 8px 14px; font-weight: 700; background: var(--gold); color: var(--gold-ink); transition: transform .15s, filter .2s; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: translateY(1px) scale(.98); }
+  .btn[disabled] { opacity: .5; cursor: default; }
+  .btn.quiet { background: var(--surface-2); color: var(--fg); border: 1px solid var(--line); }
+
+  /* Calculadora */
+  .calc { position: relative; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 22px; display: grid; gap: 14px; }
+  .calc::before { content: ""; position: absolute; inset: -40% -20% auto auto; width: 70%; aspect-ratio: 1; background: radial-gradient(closest-side, var(--glow), transparent); pointer-events: none; }
+  .calc > * { position: relative; }
+  .field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px 12px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 16px; padding: 14px 14px 14px 18px; transition: border-color .2s; }
+  .field:focus-within { border-color: var(--gold); }
+  .field label, .field .lab { grid-column: 1 / -1; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .amount, .result { min-width: 0; width: 100%; background: transparent; border: 0; outline: 0; padding: 0; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: clamp(1.5rem, 6.4vw, 2.2rem); font-weight: 500; line-height: 1.2; overflow-wrap: anywhere; }
+  .result { display: block; min-height: 1.2em; }
+  .result.wait { color: transparent; border-radius: 8px; background: linear-gradient(90deg, var(--line), var(--surface), var(--line)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; max-width: 70%; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  .pick { position: relative; display: flex; align-items: center; gap: 8px; }
+  .glyph { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--gold); color: var(--gold-ink); font-weight: 700; font-size: 14px; flex: none; }
+  select { appearance: none; -webkit-appearance: none; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 9px 30px 9px 12px; font-weight: 700; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+  select:hover { border-color: var(--gold); }
+  .swapwrap { display: flex; align-items: center; gap: 12px; margin-block: -6px; }
+  .swapwrap::before, .swapwrap::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .swap { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); cursor: pointer; display: grid; place-items: center; transition: transform .35s cubic-bezier(.3, 1.4, .5, 1), border-color .2s; }
+  .swap:hover { border-color: var(--gold); }
+  .swap.spin { transform: rotate(180deg); }
+  .swap svg { width: 20px; height: 20px; stroke: var(--gold-text); }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; font-size: 14px; }
+  .rateline { font-family: var(--font-num); font-variant-numeric: tabular-nums; color: var(--gold-text); font-size: 14px; overflow-wrap: anywhere; }
+  .hint { color: var(--down); font-size: 13px; min-height: 1.3em; }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .2s, border-color .2s, color .2s; color: var(--muted); }
+  .chip:hover { border-color: var(--gold); color: var(--fg); }
+  .chip[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: var(--gold-ink); }
+  .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+  .opt { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  .opt input { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 15px; letter-spacing: 0; text-transform: none; color: var(--fg); min-width: 0; }
+  .opt input:focus-visible { border-color: var(--gold); outline: 0; }
+
+  /* Mercado */
+  h2 { font-size: 1.35rem; }
+  .sec { display: grid; gap: 12px; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 480px; }
+  th, td { padding: 12px 16px; text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--line); }
+  tbody tr + tr td { border-top: 1px solid var(--line); }
+  tbody tr { cursor: pointer; transition: background .15s; }
+  tbody tr:hover { background: var(--surface-2); }
+  td.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+  .asset { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+  .asset small { display: block; color: var(--muted); font-weight: 500; font-size: 12px; }
+  .up { color: var(--up); } .down { color: var(--down); } .flat { color: var(--muted); }
+
+  .notes { display: grid; gap: 10px; color: var(--muted); font-size: 14px; }
+  .notes strong { color: var(--fg); }
+  .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); opacity: 0; background: var(--fg); color: var(--bg); padding: 9px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; transition: all .25s; pointer-events: none; }
+  .toast.on { opacity: 1; transform: translate(-50%, 0); }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  @media (max-width: 460px) { .calc { padding: 14px; } .field { padding: 12px 10px 12px 14px; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="top">
+    <div class="brand"><span class="mark">EB</span><span>Efecto Bermu</span></div>
+    <button class="ghost" id="theme" type="button" aria-label="Cambiar entre modo claro y oscuro">Modo claro / oscuro</button>
+  </header>
+
+  <section class="hero">
+    <h1>Cambio Bermu</h1>
+    <p class="lede">Euros, dólares, stablecoins y criptos con precios del mercado de Crypto.com. Escribe una cantidad y mira cuánto vale en la otra moneda.</p>
+    <div class="status" id="status" aria-live="polite"></div>
+  </section>
+
+  <section class="calc" aria-label="Calculadora de cambio">
+    <div class="field">
+      <label for="amt">Tengo</label>
+      <input class="amount" id="amt" type="text" inputmode="decimal" autocomplete="off" value="100" aria-describedby="hint">
+      <div class="pick"><span class="glyph" id="gFrom" aria-hidden="true">€</span><select id="from" aria-label="Moneda de origen"></select></div>
+    </div>
+
+    <div class="swapwrap">
+      <button class="swap" id="swap" type="button" aria-label="Invertir monedas">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v14M7 18l-3-3M7 18l3-3M17 20V6M17 6l-3 3M17 6l3 3"/></svg>
+      </button>
+    </div>
+
+    <div class="field">
+      <span class="lab" id="recibo">Recibo</span>
+      <output class="result wait" id="out" aria-labelledby="recibo" aria-live="polite">0</output>
+      <div class="pick"><span class="glyph" id="gTo" aria-hidden="true">$</span><select id="to" aria-label="Moneda de destino"></select></div>
+    </div>
+
+    <p class="hint" id="hint" role="status"></p>
+
+    <div class="meta">
+      <span class="rateline" id="rateLine">—</span>
+      <div class="tools">
+        <button class="btn quiet" id="copy" type="button">Copiar resultado</button>
+        <button class="btn quiet" id="refresh" type="button">Actualizar ahora</button>
+      </div>
+    </div>
+
+    <div class="chips" id="chips" role="group" aria-label="Cambios frecuentes"></div>
+
+    <div class="opts">
+      <div class="opt"><label for="fee">Comisión de tu plataforma (%)</label><input id="fee" type="text" inputmode="decimal" value="0" autocomplete="off"></div>
+      <div class="opt"><label for="manual">EUR/USD fijo (opcional)</label><input id="manual" type="text" inputmode="decimal" placeholder="Vacío = tipo del BCE" autocomplete="off"></div>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="mk">
+    <h2 id="mk">Mercado ahora</h2>
+    <div class="tablewrap" tabindex="0" role="region" aria-label="Tabla de precios, se desplaza horizontalmente">
+      <table>
+        <thead><tr><th>Activo</th><th>Precio en USD</th><th>Precio en EUR</th><th>24 h</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="notes" style="font-size:13px">Toca una fila para convertir ese activo a euros.</p>
+  </section>
+
+  <section class="notes" aria-label="Cómo se calcula">
+    <p><strong>De dónde salen los precios.</strong> Las criptomonedas, de los pares del exchange Crypto.com (por ejemplo BTC/EUR, BTC/USD, USDT/USD). Se refrescan solas cada 30 segundos, o al pulsar «Actualizar ahora».</p>
+    <p><strong>El tipo EUR/USD.</strong> Es el tipo de referencia del Banco Central Europeo, que se publica una vez al día. Si necesitas otro (el de tu banco, por ejemplo), escríbelo en «EUR/USD fijo». Cuando conviertes una cripto directamente a euros se usa el precio de su par en euros, no este tipo.</p>
+    <p><strong>USDC.</strong> El exchange no ofrece un par USDC directo en esta consulta, así que se trata como 1 USDC = 1 USD, que es su paridad objetivo.</p>
+    <p><strong>Importante.</strong> Es un precio de referencia. Tu banco, tu exchange o tu wallet aplicarán su propio spread y comisiones. Úsalo para presupuestar, no como garantía de ejecución.</p>
+  </section>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // 1) Catálogo de activos: cuántos decimales mostrar y qué símbolo lleva el círculo.
+  var ASSETS = {
+    EUR:  { name: "Euro",            sym: "€", dec: 2, kind: "fiat" },
+    USD:  { name: "Dólar",           sym: "$", dec: 2, kind: "fiat" },
+    USDT: { name: "Tether",          sym: "₮", dec: 2, kind: "stable" },
+    USDC: { name: "USD Coin",        sym: "$", dec: 2, kind: "stable" },
+    BTC:  { name: "Bitcoin",         sym: "₿", dec: 8, kind: "crypto" },
+    ETH:  { name: "Ethereum",        sym: "Ξ", dec: 6, kind: "crypto" },
+    SOL:  { name: "Solana",          sym: "S", dec: 4, kind: "crypto" },
+    XRP:  { name: "XRP",             sym: "X", dec: 4, kind: "crypto" }
+  };
+  var CRYPTOS = ["BTC", "ETH", "SOL", "XRP"];
+  var INSTRUMENTS = ["USDT_USD"].concat(CRYPTOS.map(function (c) { return c + "_USD"; }), CRYPTOS.map(function (c) { return c + "_EUR"; }));
+  var SERVER = "Crypto.com", TOOL = "Get_ticker"; // se afinan con listTools() al arrancar
+  var PRESETS = [["EUR","USD"],["USD","EUR"],["EUR","USDT"],["USDT","EUR"],["EUR","BTC"],["BTC","EUR"],["USDC","EUR"]];
+
+  var tick = {};      // nombre de par -> { last, change, ts }
+  var errors = {};    // nombre de par -> código de error
+  var ecb = null, failed = null, refreshing = false;  // ecb = tipo EUR/USD del BCE
+  var $ = function (id) { return document.getElementById(id); };
+
+  // 2) Utilidades de formato en español (coma decimal, punto de miles).
+  function nf(min, max) {
+    try { return new Intl.NumberFormat("es-ES", { minimumFractionDigits: min, maximumFractionDigits: max, useGrouping: "always" }); }
+    catch (e) { return new Intl.NumberFormat("es-ES", { minimumFractionDigits: min, maximumFractionDigits: max }); }
+  }
+  function fmtAsset(n, code) {
+    var d = ASSETS[code].dec;
+    return nf(ASSETS[code].kind === "crypto" ? 0 : 2, d).format(n);
+  }
+  function fmtRate(n) {
+    var a = Math.abs(n);
+    var d = a >= 1000 ? 2 : a >= 1 ? 4 : a >= 0.01 ? 6 : 8;
+    return nf(a >= 1 ? 2 : 0, d).format(n);
+  }
+  function parseNum(s) {
+    if (s == null) return NaN;
+    s = String(s).trim().replace(/\s/g, "");
+    if (s === "") return NaN;
+    // "1.234,56" -> 1234.56 ; "1234,56" -> 1234.56 ; "1234.56" se respeta
+    if (s.indexOf(",") > -1) s = s.replace(/\./g, "").replace(",", ".");
+    return /^-?\d*\.?\d+$/.test(s) ? parseFloat(s) : NaN;
+  }
+
+  // 3) Motor de precios. Todo se apoya en los pares del exchange.
+  function mid(name) { return tick[name] ? tick[name].last : null; }
+  function manualRate() { var v = parseNum($("manual").value); return v > 0 ? v : null; }
+  function median(a) { a = a.slice().sort(function (x, y) { return x - y; }); var m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; }
+  function eurUsd() {
+    var m = manualRate(); if (m) return m;
+    if (ecb) return ecb.rate;
+    var r = [];
+    CRYPTOS.forEach(function (c) { var u = mid(c + "_USD"), e = mid(c + "_EUR"); if (u && e) r.push(u / e); });
+    return r.length ? median(r) : null;
+  }
+  function usdPrice(a) {
+    if (a === "USD" || a === "USDC") return 1;
+    if (a === "EUR") return eurUsd();
+    if (a === "USDT") return mid("USDT_USD");
+    return mid(a + "_USD");
+  }
+  function convert(amount, from, to) {
+    if (from === to) return amount;
+    if (!manualRate()) {
+      // Si hay par directo con EUR se usa tal cual (más exacto que pasar por USD).
+      if (to === "EUR" && mid(from + "_EUR")) return amount * mid(from + "_EUR");
+      if (from === "EUR" && mid(to + "_EUR")) return amount / mid(to + "_EUR");
+    }
+    var pf = usdPrice(from), pt = usdPrice(to);
+    if (!pf || !pt) return null;
+    return amount * pf / pt;
+  }
+
+  // 4) Datos: la página pide /api/precios a tu propio dominio (lo atiende _worker.js)
+  //    y repite la petición cada 30 s mientras la pestaña esté visible.
+  function load() {
+    return fetch("/api/precios", { cache: "no-store" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("El servidor respondió " + r.status);
+        return r.json();
+      })
+      .then(function (d) {
+        var tk = d.tickers || {};
+        Object.keys(tk).forEach(function (n) {
+          var t = tk[n];
+          if (t && isFinite(t.last)) {
+            tick[n] = { last: +t.last, change: t.change == null ? NaN : +t.change, ts: +t.ts || Date.parse(d.generated) || Date.now() };
+          }
+        });
+        ecb = d.eurUsd && d.eurUsd.rate > 0 ? { rate: +d.eurUsd.rate, date: d.eurUsd.date || "" } : null;
+        failed = null;
+      })
+      .catch(function (e) { failed = (e && e.message) || "Error de red"; })
+      .then(render);
+  }
+  function refreshNow() {
+    if (refreshing) return;
+    refreshing = true; $("refresh").disabled = true;
+    load().then(function () { toast(failed ? "No se pudo actualizar" : "Precios actualizados"); });
+    setTimeout(function () { refreshing = false; $("refresh").disabled = false; }, 8000);
+  }
+
+  // 5) Estado visible del mercado.
+  function statusInfo() {
+    var have = Object.keys(tick).length;
+    if (have) {
+      var newest = Math.max.apply(null, Object.keys(tick).map(function (k) { return tick[k].ts; }));
+      var age = (Date.now() - newest) / 1000;
+      var hora = new Date(newest).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Europe/Madrid" });
+      if (failed || age > 120) return { cls: "stale", txt: "Datos de las " + hora, extra: "No se pudo actualizar; se muestra el último precio recibido", action: "retry" };
+      return { cls: "live", txt: "En vivo", extra: "Último precio a las " + hora + " (hora de España)" };
+    }
+    if (failed) return { cls: "err", txt: "No se pudo leer el mercado", extra: failed, action: "retry" };
+    return { cls: "", txt: "Conectando con el mercado…", extra: "" };
+  }
+  function renderStatus() {
+    var s = statusInfo(), el = $("status");
+    el.innerHTML = "";
+    var pill = document.createElement("span"); pill.className = "pill " + s.cls;
+    var d = document.createElement("span"); d.className = "dot";
+    pill.appendChild(d); pill.appendChild(document.createTextNode(s.txt)); el.appendChild(pill);
+    if (s.extra) { var x = document.createElement("span"); x.textContent = s.extra; el.appendChild(x); }
+    if (s.action) {
+      var b = document.createElement("button"); b.className = "btn"; b.type = "button";
+      b.textContent = "Reintentar";
+      b.addEventListener("click", function () { load(); });
+      el.appendChild(b);
+    }
+  }
+
+  // 6) Dibujo de calculadora, chips y tabla.
+  function validAmount() { return parseNum($("amt").value); }
+  function feeFactor() { var f = parseNum($("fee").value); return f >= 0 && f < 100 ? 1 - f / 100 : 1; }
+  var lastResultText = "";
+  function renderCalc() {
+    var from = $("from").value, to = $("to").value;
+    $("gFrom").textContent = ASSETS[from].sym; $("gTo").textContent = ASSETS[to].sym;
+    var amt = validAmount(), out = $("out"), hint = $("hint");
+    hint.textContent = "";
+    if (isNaN(amt) || amt < 0) {
+      out.className = "result"; out.textContent = "0"; lastResultText = "";
+      if ($("amt").value.trim() !== "") hint.textContent = "Escribe un número, por ejemplo 250,50.";
+      $("rateLine").textContent = "—";
+    } else {
+      var r = convert(amt, from, to);
+      if (r == null) { out.className = "result wait"; out.textContent = "0"; lastResultText = ""; $("rateLine").textContent = "Esperando precios…"; }
+      else {
+        r = r * feeFactor();
+        out.className = "result"; lastResultText = fmtAsset(r, to); out.textContent = lastResultText;
+        var unit = convert(1, from, to);
+        $("rateLine").textContent = "1 " + from + " = " + fmtRate(unit * feeFactor()) + " " + to;
+      }
+    }
+    Array.prototype.forEach.call($("chips").children, function (c) {
+      c.setAttribute("aria-pressed", String(c.dataset.f === from && c.dataset.t === to));
+    });
+  }
+  function change24(a) {
+    var t = tick[a + "_USD"]; if (!t || !isFinite(t.change)) return null; return t.change;
+  }
+  function renderRows() {
+    var body = $("rows"); body.innerHTML = "";
+    var rows = CRYPTOS.concat(["USDT"]);
+    rows.forEach(function (a) {
+      var u = usdPrice(a), e = convert(1, a, "EUR");
+      var ch = change24(a);
+      var tr = document.createElement("tr");
+      tr.tabIndex = 0; tr.setAttribute("role", "button");
+      tr.setAttribute("aria-label", "Convertir " + ASSETS[a].name + " a euros");
+      var td0 = document.createElement("td");
+      td0.innerHTML = '<div class="asset"><span class="glyph" aria-hidden="true"></span><span>' + a + '<small>' + ASSETS[a].name + '</small></span></div>';
+      td0.querySelector(".glyph").textContent = ASSETS[a].sym;
+      tr.appendChild(td0);
+      [u != null ? fmtRate(u) : "—", e != null ? fmtRate(e) : "—"].forEach(function (t) {
+        var td = document.createElement("td"); td.className = "num"; td.textContent = t; tr.appendChild(td);
+      });
+      var tdc = document.createElement("td"); tdc.className = "num " + (ch == null ? "flat" : ch > 0 ? "up" : ch < 0 ? "down" : "flat");
+      tdc.textContent = ch == null ? "—" : (ch > 0 ? "+" : "") + nf(2, 2).format(ch * 100) + " %";
+      tr.appendChild(tdc);
+      var go = function () { $("from").value = a; $("to").value = "EUR"; renderCalc(); window.scrollTo({ top: 0, behavior: "smooth" }); };
+      tr.addEventListener("click", go);
+      tr.addEventListener("keydown", function (ev) { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); go(); } });
+      body.appendChild(tr);
+    });
+    var eu = eurUsd();
+    var tr2 = document.createElement("tr");
+    tr2.innerHTML = '<td><div class="asset"><span class="glyph">€</span><span>EUR / USD<small>' + (manualRate() ? "Tipo fijado por ti" : ecb ? "BCE · " + ecb.date : "Implícito del mercado") + '</small></span></div></td><td class="num"></td><td class="num"></td><td class="num flat">—</td>';
+    tr2.children[1].textContent = eu ? fmtRate(eu) : "—";
+    tr2.children[2].textContent = eu ? fmtRate(1 / eu) : "—";
+    tr2.addEventListener("click", function () { $("from").value = "EUR"; $("to").value = "USD"; renderCalc(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+    body.appendChild(tr2);
+  }
+  function render() { renderStatus(); renderCalc(); renderRows(); }
+
+  // 7) Montaje de controles y eventos.
+  function fillSelect(sel, value) {
+    Object.keys(ASSETS).forEach(function (code) {
+      var o = document.createElement("option"); o.value = code; o.textContent = code; sel.appendChild(o);
+    });
+    sel.value = value;
+  }
+  fillSelect($("from"), "EUR"); fillSelect($("to"), "USD");
+  PRESETS.forEach(function (p) {
+    var c = document.createElement("button"); c.type = "button"; c.className = "chip";
+    c.dataset.f = p[0]; c.dataset.t = p[1]; c.textContent = p[0] + " → " + p[1];
+    c.addEventListener("click", function () { $("from").value = p[0]; $("to").value = p[1]; renderCalc(); });
+    $("chips").appendChild(c);
+  });
+  ["amt", "fee", "manual"].forEach(function (id) { $(id).addEventListener("input", render); });
+  ["from", "to"].forEach(function (id) { $(id).addEventListener("change", renderCalc); });
+  $("swap").addEventListener("click", function () {
+    var f = $("from").value; $("from").value = $("to").value; $("to").value = f;
+    var s = $("swap"); s.classList.toggle("spin");
+    // Si ya hay un resultado válido, lo convertimos en la nueva cantidad: así "volver" es un clic.
+    var shown = lastResultText && !isNaN(validAmount()) ? lastResultText : null;
+    if (shown) $("amt").value = shown.replace(/\./g, "");
+    renderCalc();
+  });
+  $("refresh").addEventListener("click", refreshNow);
+  $("copy").addEventListener("click", function () {
+    if (!lastResultText) { toast("Aún no hay resultado que copiar"); return; }
+    var txt = lastResultText + " " + $("to").value;
+    var fallback = function () {
+      var r = document.createRange(); r.selectNodeContents($("out"));
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      toast("Resultado seleccionado: cópialo con tu teclado");
+    };
+    try { navigator.clipboard.writeText(txt).then(function () { toast("Copiado: " + txt); }, fallback); } catch (e) { fallback(); }
+  });
+  $("theme").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme ? root.dataset.theme === "dark" : !window.matchMedia("(prefers-color-scheme: light)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+  });
+  var tt;
+  function toast(msg) { var t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(tt); tt = setTimeout(function () { t.classList.remove("on"); }, 2200); }
+
+  render();
+  setInterval(renderStatus, 5000);
+
+  // 8) Arranque: pintamos ya la página y pedimos precios.
+  load();
+  setInterval(function () { if (!document.hidden) load(); }, 30000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) load(); });
+})();
+</script>
+</body>
+</html>

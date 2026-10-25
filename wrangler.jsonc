@@ -1,0 +1,12 @@
+{
+  // Configuración de Cloudflare: le dice qué archivo es el servidor y dónde está la página.
+  "name": "cambio-bermu",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-25",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    // El Worker solo se ejecuta para /api/*; el resto lo sirve Cloudflare directamente (más rápido y gratis).
+    "run_worker_first": ["/api/*"]
+  }
+}
