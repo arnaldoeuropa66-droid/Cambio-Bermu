@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cambio Bermu</title>
-<meta name="description" content="Calculadora de cambio entre euro, dólar, USDT, USDC, BTC, ETH, SOL y XRP con precios de mercado actualizados.">
+<meta name="description" content="Calculadora de cambio entre euro, dólar, USDT, USDC, BTC, ETH, SOL y XRP con precios de mercado actualizados. Incluye bolívares venezolanos.">
 <meta name="theme-color" content="#0e0d0b">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23d9ab3f'/%3E%3Ctext x='32' y='42' font-family='Arial,sans-serif' font-weight='700' font-size='30' text-anchor='middle' fill='%231a1405'%3EEB%3C/text%3E%3C/svg%3E">
 <style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
@@ -120,6 +120,15 @@
   .opt input { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 15px; letter-spacing: 0; text-transform: none; color: var(--fg); min-width: 0; }
   .opt input:focus-visible { border-color: var(--gold); outline: 0; }
 
+  .vesboth { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+  .vcell { text-align: left; display: grid; gap: 4px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); cursor: pointer; min-width: 0; transition: border-color .2s, transform .15s; }
+  .vcell:hover { border-color: var(--gold); }
+  .vcell:active { transform: scale(.985); }
+  .vcell.on { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+  .vlab { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .vval { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 1.2rem; overflow-wrap: anywhere; }
+  .opt select { width: 100%; letter-spacing: 0; text-transform: none; font-weight: 600; }
+
   /* Mercado */
   h2 { font-size: 1.35rem; }
   .sec { display: grid; gap: 12px; }
@@ -177,6 +186,7 @@
     </div>
 
     <p class="hint" id="hint" role="status"></p>
+    <div class="vesboth" id="vesBoth" hidden aria-label="Resultado con cada tasa de bolívares"></div>
 
     <div class="meta">
       <span class="rateline" id="rateLine">—</span>
@@ -190,6 +200,8 @@
 
     <div class="opts">
       <div class="opt"><label for="fee">Comisión de tu plataforma (%)</label><input id="fee" type="text" inputmode="decimal" value="0" autocomplete="off"></div>
+      <div class="opt"><label for="vesMode">Tasa de bolívares</label><select id="vesMode"><option value="paralelo">Paralelo (por defecto)</option><option value="bcv">Oficial BCV</option></select></div>
+      <div class="opt"><label for="vesManual">Bs. por 1 USD (opcional)</label><input id="vesManual" type="text" inputmode="decimal" placeholder="Vacío = la tasa elegida" autocomplete="off"></div>
       <div class="opt"><label for="manual">EUR/USD fijo (opcional)</label><input id="manual" type="text" inputmode="decimal" placeholder="Vacío = tipo del BCE" autocomplete="off"></div>
     </div>
   </section>
@@ -208,6 +220,7 @@
   <section class="notes" aria-label="Cómo se calcula">
     <p><strong>De dónde salen los precios.</strong> Las criptomonedas, de los pares del exchange Crypto.com (por ejemplo BTC/EUR, BTC/USD, USDT/USD). Se refrescan solas cada 30 segundos, o al pulsar «Actualizar ahora».</p>
     <p><strong>El tipo EUR/USD.</strong> Es el tipo de referencia del Banco Central Europeo, que se publica una vez al día. Si necesitas otro (el de tu banco, por ejemplo), escríbelo en «EUR/USD fijo». Cuando conviertes una cripto directamente a euros se usa el precio de su par en euros, no este tipo.</p>
+    <p><strong>Bolívares.</strong> Por defecto se usa la tasa del mercado paralelo, que es la que se maneja en la práctica; la fuente es Yadio, a través de DolarApi. Puedes cambiar a la tasa oficial del BCV en «Tasa de bolívares». Es una referencia: cada plataforma de cambio da la suya, así que si usas una concreta, escríbela en «Bs. por 1 USD» y todos los cálculos con bolívares la usarán. Las conversiones entre euros y bolívares pasan por el dólar.</p>
     <p><strong>USDC.</strong> El exchange no ofrece un par USDC directo en esta consulta, así que se trata como 1 USDC = 1 USD, que es su paridad objetivo.</p>
     <p><strong>Importante.</strong> Es un precio de referencia. Tu banco, tu exchange o tu wallet aplicarán su propio spread y comisiones. Úsalo para presupuestar, no como garantía de ejecución.</p>
   </section>
@@ -224,6 +237,7 @@
     USD:  { name: "Dólar",           sym: "$", dec: 2, kind: "fiat" },
     USDT: { name: "Tether",          sym: "₮", dec: 2, kind: "stable" },
     USDC: { name: "USD Coin",        sym: "$", dec: 2, kind: "stable" },
+    VES:  { name: "Bolívar",         sym: "Bs", dec: 2, kind: "fiat" },
     BTC:  { name: "Bitcoin",         sym: "₿", dec: 8, kind: "crypto" },
     ETH:  { name: "Ethereum",        sym: "Ξ", dec: 6, kind: "crypto" },
     SOL:  { name: "Solana",          sym: "S", dec: 4, kind: "crypto" },
@@ -232,11 +246,11 @@
   var CRYPTOS = ["BTC", "ETH", "SOL", "XRP"];
   var INSTRUMENTS = ["USDT_USD"].concat(CRYPTOS.map(function (c) { return c + "_USD"; }), CRYPTOS.map(function (c) { return c + "_EUR"; }));
   var SERVER = "Crypto.com", TOOL = "Get_ticker"; // se afinan con listTools() al arrancar
-  var PRESETS = [["EUR","USD"],["USD","EUR"],["EUR","USDT"],["USDT","EUR"],["EUR","BTC"],["BTC","EUR"],["USDC","EUR"]];
+  var PRESETS = [["EUR","USD"],["USD","EUR"],["EUR","USDT"],["USDT","EUR"],["EUR","BTC"],["BTC","EUR"],["USDC","EUR"],["EUR","VES"],["VES","EUR"],["USD","VES"],["USDT","VES"]];
 
   var tick = {};      // nombre de par -> { last, change, ts }
   var errors = {};    // nombre de par -> código de error
-  var ecb = null, failed = null, refreshing = false;  // ecb = tipo EUR/USD del BCE
+  var ves = null, ecb = null, failed = null, refreshing = false;  // ecb = tipo EUR/USD del BCE
   var $ = function (id) { return document.getElementById(id); };
 
   // 2) Utilidades de formato en español (coma decimal, punto de miles).
@@ -259,6 +273,8 @@
     if (s === "") return NaN;
     // "1.234,56" -> 1234.56 ; "1234,56" -> 1234.56 ; "1234.56" se respeta
     if (s.indexOf(",") > -1) s = s.replace(/\./g, "").replace(",", ".");
+    // "1.006" o "12.500" (puntos de miles, sin coma) = 1006 / 12500. "0.5" o "2.5" siguen siendo decimales.
+    else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
     return /^-?\d*\.?\d+$/.test(s) ? parseFloat(s) : NaN;
   }
 
@@ -273,7 +289,17 @@
     CRYPTOS.forEach(function (c) { var u = mid(c + "_USD"), e = mid(c + "_EUR"); if (u && e) r.push(u / e); });
     return r.length ? median(r) : null;
   }
+  // Bolívares por 1 USD: la que escribas tú; si no, la que elijas en el selector (paralelo por defecto, o BCV oficial).
+  var vesOverride = null;  // se usa solo para calcular el resultado con una tasa concreta
+  function vesPerUsd() {
+    if (vesOverride) return vesOverride;
+    var m = parseNum($("vesManual").value);
+    if (m > 0) return m;
+    var t = ves && ($("vesMode").value === "bcv" ? ves.bcv : ves.paralelo);
+    return t ? t.rate : null;
+  }
   function usdPrice(a) {
+    if (a === "VES") { var v = vesPerUsd(); return v ? 1 / v : null; }
     if (a === "USD" || a === "USDC") return 1;
     if (a === "EUR") return eurUsd();
     if (a === "USDT") return mid("USDT_USD");
@@ -308,6 +334,8 @@
           }
         });
         ecb = d.eurUsd && d.eurUsd.rate > 0 ? { rate: +d.eurUsd.rate, date: d.eurUsd.date || "" } : null;
+        var okTasa = function (t) { return t && t.rate > 0 ? { rate: +t.rate, date: t.date || "" } : null; };
+        ves = d.ves ? { bcv: okTasa(d.ves.bcv), paralelo: okTasa(d.ves.paralelo) } : null;
         failed = null;
       })
       .catch(function (e) { failed = (e && e.message) || "Error de red"; })
@@ -357,9 +385,24 @@
     $("gFrom").textContent = ASSETS[from].sym; $("gTo").textContent = ASSETS[to].sym;
     var amt = validAmount(), out = $("out"), hint = $("hint");
     hint.textContent = "";
+    var vesNote = "";
+    if (from === "VES" || to === "VES") {
+      var vm = parseNum($("vesManual").value), modo = $("vesMode").value;
+      var t = ves && (modo === "bcv" ? ves.bcv : ves.paralelo);
+      var nombre = modo === "bcv" ? "oficial BCV" : "paralelo";
+      if (vm > 0) vesNote = "Bolívares: usando tu tasa de " + nf(2, 2).format(vm) + " Bs. por USD.";
+      else if (t) {
+        var f = t.date ? new Date(t.date) : null;
+        var fs = f && !isNaN(f) ? " (" + f.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", timeZone: "America/Caracas" }) + ")" : "";
+        vesNote = "Bolívares: tasa " + nombre + fs + " de " + nf(2, 2).format(t.rate) + " Bs. por USD." +
+          (modo === "bcv" ? "" : " Es una referencia; tu plataforma puede dar otra, y la puedes escribir en «Bs. por 1 USD».");
+      } else vesNote = "No llega la tasa " + nombre + ". Escribe la tuya en «Bs. por 1 USD» o elige la otra tasa.";
+    }
+    hint.style.color = vesNote ? "var(--muted)" : "";
+    if (vesNote) hint.textContent = vesNote;
     if (isNaN(amt) || amt < 0) {
       out.className = "result"; out.textContent = "0"; lastResultText = "";
-      if ($("amt").value.trim() !== "") hint.textContent = "Escribe un número, por ejemplo 250,50.";
+      if ($("amt").value.trim() !== "") { hint.style.color = ""; hint.textContent = "Escribe un número, por ejemplo 250,50."; }
       $("rateLine").textContent = "—";
     } else {
       var r = convert(amt, from, to);
@@ -370,6 +413,28 @@
         var unit = convert(1, from, to);
         $("rateLine").textContent = "1 " + from + " = " + fmtRate(unit * feeFactor()) + " " + to;
       }
+    }
+    // Con bolívares: mostramos el resultado con las dos tasas a la vez. Tocar una la deja como tasa principal.
+    var vb = $("vesBoth");
+    var both = (from === "VES" || to === "VES") && from !== to && !isNaN(amt) && amt >= 0;
+    vb.hidden = !both;
+    if (both) {
+      vb.innerHTML = "";
+      var manual = parseNum($("vesManual").value) > 0;
+      [["paralelo", "Paralelo", ves && ves.paralelo], ["bcv", "Oficial BCV", ves && ves.bcv]].forEach(function (x) {
+        var cell = document.createElement("button"); cell.type = "button";
+        cell.className = "vcell" + (!manual && $("vesMode").value === x[0] ? " on" : "");
+        var lab = document.createElement("span"); lab.className = "vlab";
+        lab.textContent = x[1] + (x[2] ? " · " + nf(2, 2).format(x[2].rate) + " Bs./USD" : "");
+        var v = document.createElement("span"); v.className = "vval";
+        if (x[2]) {
+          vesOverride = x[2].rate; var rr = convert(amt, from, to); vesOverride = null;
+          v.textContent = rr == null ? "—" : fmtAsset(rr * feeFactor(), to) + " " + to;
+        } else v.textContent = "Sin tasa";
+        cell.appendChild(lab); cell.appendChild(v);
+        cell.addEventListener("click", function () { $("vesMode").value = x[0]; $("vesManual").value = ""; render(); });
+        vb.appendChild(cell);
+      });
     }
     Array.prototype.forEach.call($("chips").children, function (c) {
       c.setAttribute("aria-pressed", String(c.dataset.f === from && c.dataset.t === to));
@@ -409,6 +474,13 @@
     tr2.children[2].textContent = eu ? fmtRate(1 / eu) : "—";
     tr2.addEventListener("click", function () { $("from").value = "EUR"; $("to").value = "USD"; renderCalc(); window.scrollTo({ top: 0, behavior: "smooth" }); });
     body.appendChild(tr2);
+    var vp = vesPerUsd();
+    var tr3 = document.createElement("tr");
+    tr3.innerHTML = '<td><div class="asset"><span class="glyph">Bs</span><span>USD / VES<small>' + (parseNum($("vesManual").value) > 0 ? "Tasa fijada por ti" : vp ? ($("vesMode").value === "bcv" ? "Oficial BCV" : "Paralelo") : "Sin tasa") + '</small></span></div></td><td class="num"></td><td class="num"></td><td class="num flat">—</td>';
+    tr3.children[1].textContent = vp ? nf(2, 2).format(vp) + " Bs." : "—";
+    tr3.children[2].textContent = vp && eu ? nf(2, 2).format(vp * eu) + " Bs." : "—";
+    tr3.addEventListener("click", function () { $("from").value = "USD"; $("to").value = "VES"; renderCalc(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+    body.appendChild(tr3);
   }
   function render() { renderStatus(); renderCalc(); renderRows(); }
 
@@ -426,8 +498,9 @@
     c.addEventListener("click", function () { $("from").value = p[0]; $("to").value = p[1]; renderCalc(); });
     $("chips").appendChild(c);
   });
-  ["amt", "fee", "manual"].forEach(function (id) { $(id).addEventListener("input", render); });
+  ["amt", "fee", "manual", "vesManual"].forEach(function (id) { $(id).addEventListener("input", render); });
   ["from", "to"].forEach(function (id) { $(id).addEventListener("change", renderCalc); });
+  $("vesMode").addEventListener("change", render);
   $("swap").addEventListener("click", function () {
     var f = $("from").value; $("from").value = $("to").value; $("to").value = f;
     var s = $("swap"); s.classList.toggle("spin");
